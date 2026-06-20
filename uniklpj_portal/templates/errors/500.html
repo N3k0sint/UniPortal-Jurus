@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Internal Server Error{% endblock %}
+
+{% block content %}
+<div class="error-container glass-panel">
+    <div class="error-code" style="background: linear-gradient(90deg, #ff3b30 0%, #ff5e3a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">500</div>
+    <h1 class="error-title">Internal Server Error</h1>
+    <p class="error-message">The server encountered an internal error or misconfiguration and was unable to complete your request. Our administrators have been notified.</p>
+    <a href="{{ url_for('portal.dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
+</div>
+{% endblock %}

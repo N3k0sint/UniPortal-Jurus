@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}UniKL PJ Research Collaboration Portal{% endblock %}</title>
+    <!-- Include premium custom styling -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <!-- Secure Navigation Header -->
+    <header>
+        <div class="nav-container">
+            <a href="{{ url_for('portal.dashboard') }}" class="logo-link">
+                <span class="logo-text">UniKL PJ</span>
+                <span class="logo-sub">Collaboration Portal</span>
+            </a>
+            
+            <nav>
+                <ul class="nav-links">
+                    {% if current_user.is_authenticated %}
+                        <li><a href="{{ url_for('portal.dashboard') }}" class="nav-link">Dashboard</a></li>
+                        <li><a href="{{ url_for('portal.edit_profile') }}" class="nav-link">Edit Profile</a></li>
+                        
+                        {% if current_user.is_admin() %}
+                            <li><a href="{{ url_for('admin.view_logs') }}" class="nav-link">Audit Logs</a></li>
+                            <li><a href="{{ url_for('admin.manage_users') }}" class="nav-link">Manage Users</a></li>
+                        {% endif %}
+                        
+                        <!-- Logged In Identity Tag -->
+                        <li>
+                            <span class="tag 
+                                {% if current_user.is_admin() %}tag-admin
+                                {% elif current_user.is_researcher() %}tag-researcher
+                                {% else %}tag-collaborator{% endif %}">
+                                {{ current_user.role.role_name }}: {{ current_user.username }}
+                            </span>
+                        </li>
+                        <li><a href="{{ url_for('auth.logout') }}" class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Logout</a></li>
+                    {% else %}
+                        <li><a href="{{ url_for('auth.login') }}" class="nav-link">Sign In</a></li>
+                        <li><a href="{{ url_for('auth.register') }}" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">Register</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Global Flash Messages Notification system -->
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Page Specific Main Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Secure Audit Footnote -->
+    <footer>
+        <p>&copy; 2026 UniKL PJ - Secure Research Collaboration Portal. All System Operations Audited.</p>
+    </footer>
+</body>
+</html>

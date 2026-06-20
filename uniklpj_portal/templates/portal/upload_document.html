@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document - UniKL PJ Collaboration Portal{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper glass-panel" style="max-width: 600px;">
+    <h2 class="form-title">Upload Research Proposal File</h2>
+    <p class="form-subtitle">Project: <strong>{{ project.title }}</strong></p>
+    
+    <!-- IMPORTANT: enctype="multipart/form-data" is required for file uploads -->
+    <form method="POST" action="{{ url_for('portal.upload_document', project_id=project.id) }}" enctype="multipart/form-data" novalidate>
+        <!-- Security Token injection (CSRF Protection) -->
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.document.label(class="form-label") }}
+            {{ form.document(class="form-control", style="padding: 0.5rem;") }}
+            {% if form.document.errors %}
+                {% for error in form.document.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                Security Policy: All files are scanned for signatures. Spoofed files will be banned. Files are securely renamed on write.
+            </p>
+        </div>
+        
+        <div class="form-group" style="margin-top: 2.5rem; display: flex; flex-direction: row; gap: 1rem; justify-content: flex-end;">
+            <a href="{{ url_for('portal.dashboard') }}" class="btn btn-outline">Cancel</a>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

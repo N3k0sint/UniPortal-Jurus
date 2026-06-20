@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}403 - Access Denied{% endblock %}
+
+{% block content %}
+<div class="error-container glass-panel">
+    <div class="error-code" style="background: linear-gradient(90deg, #ff3b30 0%, #ff9500 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">403</div>
+    <h1 class="error-title">Access Denied</h1>
+    <p class="error-message">You do not have the required role or permission to access this resource. This unauthorized activity has been logged.</p>
+    <a href="{{ url_for('portal.dashboard') }}" class="btn btn-primary">Return to Dashboard</a>
+</div>
+{% endblock %}

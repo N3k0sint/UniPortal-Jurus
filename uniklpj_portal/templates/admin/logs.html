@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}System Audit Logs - Admin Control Panel{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="dashboard-title">
+        <h1>Administrative Audit Logs</h1>
+        <p>Full system events, authentication audits, and access control trace log.</p>
+    </div>
+</div>
+
+<div class="glass-panel" style="padding: 1.5rem;">
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Timestamp</th>
+                    <th style="width: 15%;">Operator (User ID)</th>
+                    <th style="width: 20%;">Security Action</th>
+                    <th style="width: 15%;">IP Address</th>
+                    <th style="width: 35%;">Transaction Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if not logs %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted);">No system event logs recorded.</td>
+                    </tr>
+                {% else %}
+                    {% for log in logs %}
+                        <tr>
+                            <td style="font-size: 0.85rem; color: var(--text-muted);">
+                                {{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                            </td>
+                            <td>
+                                {% if log.user %}
+                                    <strong>{{ log.user.username }}</strong> <span style="font-size: 0.75rem; color: var(--text-muted);">(ID: {{ log.user_id }})</span>
+                                {% else %}
+                                    <span style="color: var(--accent-red); font-style: italic; font-size: 0.85rem;">Unauthenticated</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="log-action 
+                                    {% if 'SUCCESS' in log.action or 'REGISTRATION' in log.action or 'CREATION' in log.action %}log-success
+                                    {% elif 'FAILED' in log.action or 'BLOCKED' in log.action or 'UNAUTHORIZED' in log.action %}log-failed
+                                    {% elif 'DELETE' in log.action %}log-warning
+                                    {% else %}log-info{% endif %}">
+                                    {{ log.action }}
+                                </span>
+                            </td>
+                            <td style="font-family: monospace; font-size: 0.85rem;">{{ log.ip_address }}</td>
+                            <td style="font-size: 0.85rem; color: var(--text-muted);">{{ log.details }}</td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

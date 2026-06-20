@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - Admin Control Panel{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper glass-panel" style="max-width: 600px;">
+    <h2 class="form-title">Edit User Account</h2>
+    <p class="form-subtitle">Modify profile settings and access permissions for: <strong>{{ user.username }}</strong></p>
+    
+    <form method="POST" action="{{ url_for('admin.edit_user', user_id=user.id) }}" novalidate>
+        <!-- Security Token injection (CSRF Protection) -->
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control", placeholder="Alphanumeric usernames only") }}
+            {% if form.username.errors %}
+                {% for error in form.username.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control", placeholder="Enter email address") }}
+            {% if form.email.errors %}
+                {% for error in form.email.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.role_id.label(class="form-label") }}
+            {{ form.role_id(class="form-control") }}
+            {% if form.role_id.errors %}
+                {% for error in form.role_id.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group" style="margin-top: 2.5rem; display: flex; flex-direction: row; gap: 1rem; justify-content: flex-end;">
+            <a href="{{ url_for('admin.manage_users') }}" class="btn btn-outline">Cancel</a>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

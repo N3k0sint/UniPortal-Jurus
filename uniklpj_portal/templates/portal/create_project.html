@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}New Project - UniKL PJ Collaboration Portal{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper glass-panel" style="max-width: 700px;">
+    <h2 class="form-title">Submit New Project Proposal</h2>
+    <p class="form-subtitle">Create a collaboration space for academic research.</p>
+    
+    <form method="POST" action="{{ url_for('portal.create_project') }}" novalidate>
+        <!-- Security Token injection (CSRF Protection) -->
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.title.label(class="form-label") }}
+            {{ form.title(class="form-control", placeholder="Enter clear, descriptive project title") }}
+            {% if form.title.errors %}
+                {% for error in form.title.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.description.label(class="form-label") }}
+            {{ form.description(class="form-control", placeholder="Describe the scope, objectives, and collaborators needed") }}
+            {% if form.description.errors %}
+                {% for error in form.description.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group" style="margin-top: 2.5rem; display: flex; flex-direction: row; gap: 1rem; justify-content: flex-end;">
+            <a href="{{ url_for('portal.dashboard') }}" class="btn btn-outline">Cancel</a>
+            {{ form.submit(class="btn btn-primary") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

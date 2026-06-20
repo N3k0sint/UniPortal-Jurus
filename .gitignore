@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Databases
+instance/
+*.db
+*.sqlite
+
+# Session/Environment keys
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Project Uploads and back-ups
+uploads/*
+!uploads/.gitkeep
+/var/backups/uniklpj/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+*.bak
+*.swp

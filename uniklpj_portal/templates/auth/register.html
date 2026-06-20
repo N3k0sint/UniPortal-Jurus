@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Register - UniKL PJ Collaboration Portal{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper glass-panel" style="max-width: 540px;">
+    <h2 class="form-title">Account Registration</h2>
+    <p class="form-subtitle">Register a new portal user account. Passwords require complexity rules.</p>
+    
+    <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+        <!-- Security Token injection (CSRF Protection) -->
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.username.label(class="form-label") }}
+            {{ form.username(class="form-control", placeholder="Alphanumeric usernames only") }}
+            {% if form.username.errors %}
+                {% for error in form.username.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control", placeholder="e.g. name@student.unikl.edu.my") }}
+            {% if form.email.errors %}
+                {% for error in form.email.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control", placeholder="Min 8 chars, Upper, Lower, Number, Special") }}
+            {% if form.password.errors %}
+                {% for error in form.password.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.confirm_password.label(class="form-label") }}
+            {{ form.confirm_password(class="form-control", placeholder="Re-enter password") }}
+            {% if form.confirm_password.errors %}
+                {% for error in form.confirm_password.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.role_id.label(class="form-label") }}
+            {{ form.role_id(class="form-control") }}
+            {% if form.role_id.errors %}
+                {% for error in form.role_id.errors %}
+                    <span class="form-error">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group" style="margin-top: 2rem;">
+            {{ form.submit(class="btn btn-primary", style="width: 100%;") }}
+        </div>
+        
+        <div class="form-footer">
+            <p>Already have an account? <a href="{{ url_for('auth.login') }}">Sign in here</a></p>
+        </div>
+    </form>
+</div>
+{% endblock %}

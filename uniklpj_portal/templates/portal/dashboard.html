@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - UniKL PJ Collaboration Portal{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="dashboard-title">
+        <h1>Research Collaboration Dashboard</h1>
+        <p>Manage and share research proposals and documents securely.</p>
+    </div>
+    
+    {% if current_user.is_admin() or current_user.is_researcher() %}
+        <div>
+            <a href="{{ url_for('portal.create_project') }}" class="btn btn-gold">+ Submit Project Proposal</a>
+        </div>
+    {% endif %}
+</div>
+
+{% if not projects %}
+    <div class="glass-panel" style="text-align: center; padding: 4rem;">
+        <h3 style="margin-bottom: 1rem;">No Active Projects</h3>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">There are no research projects registered under your name.</p>
+        {% if current_user.is_admin() or current_user.is_researcher() %}
+            <a href="{{ url_for('portal.create_project') }}" class="btn btn-primary">Create Your First Project</a>
+        {% endif %}
+    </div>
+{% else %}
+    <div class="grid-layout">
+        {% for project in projects %}
+            <div class="glass-panel project-card">
+                <div>
+                    <div class="project-header">
+                        <h3 class="project-title">{{ project.title }}</h3>
+                        <span class="tag tag-researcher">ID: {{ project.id }}</span>
+                    </div>
+                    <div class="project-author">
+                        Submitted by: <strong>{{ project.owner.username }}</strong> on {{ project.created_at.strftime('%Y-%m-%d') }}
+                    </div>
+                    <p class="project-desc">{{ project.description }}</p>
+                </div>
+                
+                <div class="uploaded-docs-list">
+                    <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; color: #f9e076;">Uploaded Proposals</h4>
+                    {% if not project.documents %}
+                        <p style="font-size: 0.85rem; color: var(--text-muted); font-style: italic;">No PDF documents uploaded yet.</p>
+                    {% else %}
+                        {% for doc in project.documents %}
+                            <div class="doc-item">
+                                <div class="doc-info">
+                                    <span class="doc-name">{{ doc.original_filename }}</span>
+                                    <span class="doc-meta">Uploaded on {{ doc.uploaded_at.strftime('%Y-%m-%d %H:%M') }} by {{ doc.uploader.username }}</span>
+                                </div>
+                                <a href="{{ url_for('portal.download_document', doc_id=doc.id) }}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                                    Download
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <div class="project-footer">
+                    {% if current_user.is_admin() or project.owner_id == current_user.id %}
+                        <a href="{{ url_for('portal.upload_document', project_id=project.id) }}" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">
+                            Upload PDF
+                        </a>
+                    {% endif %}
+                    
+                    {% if current_user.is_admin() %}
+                        <form action="{{ url_for('admin.delete_project', project_id=project.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('WARNING: Are you sure you want to permanently delete this project and all its uploaded files?');">
+                            <!-- WTForms CSRF token check (using dynamic request context token since there is no WTForm instance in dashboard loop) -->
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">Delete</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

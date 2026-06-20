@@ -1,0 +1,16 @@
+[Unit]
+Description=Gunicorn instance to serve UniKL PJ Research Collaboration Portal
+After=network.target
+
+[Service]
+# Run Gunicorn as user jurus, group www-data to ensure permissions on workspace and folders
+User=jurus
+Group=www-data
+WorkingDirectory=/home/jurus/Documents/Project/UniPortal-Jurus
+Environment="PATH=/home/jurus/Documents/Project/UniPortal-Jurus/venv/bin:/usr/bin:/usr/local/bin"
+Environment="FLASK_ENV=production"
+ExecStart=/home/jurus/Documents/Project/UniPortal-Jurus/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:5000 --access-logfile /var/log/uniklpj/access.log --error-logfile /var/log/uniklpj/error.log wsgi:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
