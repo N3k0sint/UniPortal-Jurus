@@ -5,11 +5,11 @@ This document lists every command and configuration edit required to set up your
 ---
 
 ## 🛠️ Step 1: Install System Packages
-Run this command to update your system repositories and install Nginx (web server), PostgreSQL (database), Fail2ban (intrusion prevention), UFW (firewall), SSH daemon, and PAM/security components:
+Run this command to update your system repositories and install Nginx (web server), PostgreSQL (database), Fail2ban (intrusion prevention), UFW (firewall), SSH daemon, Rsyslog, Logwatch, Logrotate, and PAM/security components:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3-pip python3-venv nginx postgresql postgresql-contrib libmagic1 fail2ban ufw libpam-pwquality openssl openssh-server
+sudo apt-get install -y python3-pip python3-venv nginx postgresql postgresql-contrib libmagic1 fail2ban ufw libpam-pwquality openssl openssh-server rsyslog logwatch logrotate
 ```
 > **Screenshot opportunity**: Capture the successful installation logs showing packages being installed.
 
@@ -254,3 +254,30 @@ Enable Fail2ban active defense.
    sudo systemctl enable fail2ban
    ```
 *Check active jails with `sudo fail2ban-client status`.*
+
+---
+
+## 📋 Step 11: Configure Secure Log Rotation
+Configure logrotate to compress and rotate Gunicorn portal application logs daily:
+
+1. Create a logrotate configuration:
+   ```bash
+   sudo nano /etc/logrotate.d/uniklpj
+   ```
+2. Paste the following configuration:
+   ```text
+   /var/log/uniklpj/*.log {
+       daily
+       rotate 7
+       compress
+       delaycompress
+       missingok
+       notifempty
+       create 0660 jurus www-data
+       sharedscripts
+       postrotate
+           systemctl reload uniklpj >/dev/null 2>&1 || true
+       endscript
+   }
+   ```
+3. Save and close.

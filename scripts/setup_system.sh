@@ -14,9 +14,9 @@ fi
 echo "[+] Starting system configuration and security hardening..."
 
 # 1. Install System Dependencies
-echo "[+] Installing system packages (Nginx, PostgreSQL, Fail2ban, UFW, PAM components, libmagic)..."
+echo "[+] Installing system packages (Nginx, PostgreSQL, Fail2ban, UFW, PAM, Rsyslog, Logwatch, Logrotate)..."
 apt-get update
-apt-get install -y python3-pip python3-venv nginx postgresql postgresql-contrib libmagic1 fail2ban ufw libpam-pwquality openssl openssh-server
+apt-get install -y python3-pip python3-venv nginx postgresql postgresql-contrib libmagic1 fail2ban ufw libpam-pwquality openssl openssh-server rsyslog logwatch logrotate
 
 # 2. Setup isolated Directory and Permissions for File Uploads and Logs
 echo "[+] Configuring directory paths and permissions..."
@@ -155,6 +155,24 @@ EOF
 
 systemctl restart fail2ban
 systemctl enable fail2ban
+
+# 12. Configure Secure Log Rotation for Portal Logs
+echo "[+] Configuring secure log rotation for portal audit logs..."
+cat <<EOF > /etc/logrotate.d/uniklpj
+/var/log/uniklpj/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0660 jurus www-data
+    sharedscripts
+    postrotate
+        systemctl reload uniklpj >/dev/null 2>&1 || true
+    endscript
+}
+EOF
 
 echo "[+] SYSTEM CONFIGURATION COMPLETE!"
 echo "[*] Web Portal is running at: https://localhost"
