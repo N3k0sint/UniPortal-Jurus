@@ -122,18 +122,20 @@ def create_project():
 
 @portal_bp.route('/project/<int:project_id>/upload', methods=['GET', 'POST'])
 @login_required
-@role_required(['Admin', 'Researcher'])
+@role_required(['Admin', 'Researcher', 'Collaborator'])
 def upload_document(project_id):
     project = Project.query.get_or_404(project_id)
     
-    # Access Control Check: Researchers can only upload to their own projects (prevent IDOR)
-    if not current_user.is_admin() and project.owner_id != current_user.id:
+    is_collab = CollabRequest.query.filter_by(project_id=project.id, collaborator_id=current_user.id, status='Accepted').first() is not None
+    
+    # Access Control Check: Owner, Admin, or approved Collaborators only (prevent IDOR)
+    if not current_user.is_admin() and project.owner_id != current_user.id and not is_collab:
         log_event(
             action="UNAUTHORIZED_FILE_UPLOAD_ATTEMPT",
             user_id=current_user.id,
             details=f"Attempted to upload file to project ID: {project_id} owned by user ID: {project.owner_id}"
         )
-        flash("Access Denied: You cannot upload files to projects you do not own.", "danger")
+        flash("Access Denied: You do not have permission to upload files to this project.", "danger")
         return redirect(url_for('portal.dashboard'))
         
     form = DocumentForm()
@@ -187,6 +189,11 @@ def upload_document(project_id):
             flash(f"Failed to write file to storage directory: {str(e)}", "danger")
             return redirect(request.url)
             
+        # Determine if upload is automatically approved or pending request
+        is_approved = True
+        if not current_user.is_admin() and project.owner_id != current_user.id:
+            is_approved = False
+
         # Register in database
         new_doc = Document(
             original_filename=original_name,
@@ -194,17 +201,26 @@ def upload_document(project_id):
             file_path=dest_path,
             mime_type=mime_type,
             project_id=project.id,
-            uploaded_by=current_user.id
+            uploaded_by=current_user.id,
+            is_approved=is_approved
         )
         db.session.add(new_doc)
         db.session.commit()
         
-        log_event(
-            action="FILE_UPLOAD_SUCCESS",
-            user_id=current_user.id,
-            details=f"Uploaded document: {original_name} (Saved as: {secure_uuid_name}) to project: {project.title}"
-        )
-        flash("Document uploaded successfully!", "success")
+        if not is_approved:
+            log_event(
+                action="FILE_UPLOAD_REQUEST_SUBMITTED",
+                user_id=current_user.id,
+                details=f"Submitted document upload request: {original_name} (Saved as: {secure_uuid_name}) to project: {project.title}"
+            )
+            flash("Your document upload request has been submitted for owner approval.", "warning")
+        else:
+            log_event(
+                action="FILE_UPLOAD_SUCCESS",
+                user_id=current_user.id,
+                details=f"Uploaded document: {original_name} (Saved as: {secure_uuid_name}) to project: {project.title}"
+            )
+            flash("Document uploaded successfully!", "success")
         return redirect(url_for('portal.dashboard'))
         
     return render_template('portal/upload_document.html', form=form, project=project)
@@ -216,7 +232,17 @@ def download_document(doc_id):
     document = Document.query.get_or_404(doc_id)
     project = Project.query.get(document.project_id)
     
-    # In a collaboration portal, all authenticated users are allowed to read/download project documents
+    # Access Control: If document is not approved, only owner, uploader, or admin can download
+    if not document.is_approved:
+        if not current_user.is_admin() and project.owner_id != current_user.id and document.uploaded_by != current_user.id:
+            log_event(
+                action="UNAUTHORIZED_FILE_DOWNLOAD_ATTEMPT",
+                user_id=current_user.id,
+                details=f"Attempted to download unapproved file ID: {doc_id} on project: {project.title}"
+            )
+            flash("Access Denied: This document is pending approval from the project owner.", "danger")
+            return redirect(url_for('auth.errors_403'))
+            
     # Serve file securely from isolated directory
     log_event(
         action="FILE_DOWNLOAD_SUCCESS",
@@ -295,18 +321,20 @@ def change_password():
 
 @portal_bp.route('/project/<int:project_id>/edit', methods=['GET', 'POST'])
 @login_required
-@role_required(['Admin', 'Researcher'])
+@role_required(['Admin', 'Researcher', 'Collaborator'])
 def edit_project(project_id):
     project = Project.query.get_or_404(project_id)
     
-    # Access Control: Owner or Admin only
-    if not current_user.is_admin() and project.owner_id != current_user.id:
+    is_collab = CollabRequest.query.filter_by(project_id=project.id, collaborator_id=current_user.id, status='Accepted').first() is not None
+    
+    # Access Control: Owner, Admin, or Approved Collaborator only
+    if not current_user.is_admin() and project.owner_id != current_user.id and not is_collab:
         log_event(
             action="UNAUTHORIZED_PROJECT_EDIT_ATTEMPT",
             user_id=current_user.id,
             details=f"Attempted to edit project ID: {project_id} owned by user ID: {project.owner_id}"
         )
-        flash("Access Denied: You cannot edit projects you do not own.", "danger")
+        flash("Access Denied: You do not have permission to edit this project.", "danger")
         return redirect(url_for('portal.dashboard'))
         
     form = ProjectForm()
@@ -372,50 +400,70 @@ def delete_project(project_id):
 
 @portal_bp.route('/document/<int:doc_id>/delete', methods=['POST'])
 @login_required
-@role_required(['Admin', 'Researcher'])
+@role_required(['Admin', 'Researcher', 'Collaborator'])
 def delete_document(doc_id):
     document = Document.query.get_or_404(doc_id)
     project = Project.query.get(document.project_id)
     
-    # Access Control: Document uploader or Admin only
-    if not current_user.is_admin() and document.uploaded_by != current_user.id:
+    is_collab = CollabRequest.query.filter_by(project_id=project.id, collaborator_id=current_user.id, status='Accepted').first() is not None
+    
+    # Access Control: Owner, Admin, or approved Collaborators only (prevent IDOR)
+    if not current_user.is_admin() and project.owner_id != current_user.id and not is_collab:
         log_event(
             action="UNAUTHORIZED_FILE_DELETE_ATTEMPT",
             user_id=current_user.id,
-            details=f"Attempted to delete document ID: {doc_id} uploaded by user ID: {document.uploaded_by}"
+            details=f"Attempted to delete document ID: {doc_id} on project: {project.title}"
         )
-        flash("Access Denied: You cannot delete files you did not upload.", "danger")
+        flash("Access Denied: You do not have permission to delete this file.", "danger")
         return redirect(url_for('portal.dashboard'))
         
     filename = document.original_filename
     uuid_filename = document.secure_uuid_filename
     
-    # Delete from storage disk
-    try:
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], uuid_filename)
-        if os.path.exists(file_path):
-            os.remove(file_path)
-    except Exception as e:
-        pass
+    # If the user is the owner or an admin, delete permanently
+    if current_user.is_admin() or project.owner_id == current_user.id:
+        try:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], uuid_filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            pass
+            
+        db.session.delete(document)
+        db.session.commit()
         
-    db.session.delete(document)
-    db.session.commit()
-    
-    log_event(
-        action="FILE_DELETE_SUCCESS",
-        user_id=current_user.id,
-        details=f"Deleted document: {filename} (UUID: {uuid_filename}) from project: {project.title}"
-    )
-    flash(f"Document '{filename}' has been deleted successfully.", "success")
+        log_event(
+            action="FILE_DELETE_SUCCESS",
+            user_id=current_user.id,
+            details=f"Deleted document: {filename} (UUID: {uuid_filename}) from project: {project.title}"
+        )
+        flash(f"Document '{filename}' has been deleted successfully.", "success")
+    else:
+        # Approved collaborator, request deletion instead
+        document.delete_requested = True
+        db.session.commit()
+        
+        log_event(
+            action="FILE_DELETE_REQUEST_SUBMITTED",
+            user_id=current_user.id,
+            details=f"Submitted deletion request for document: {filename} on project: {project.title}"
+        )
+        flash(f"Deletion request for '{filename}' has been submitted to the project owner.", "warning")
+        
     return redirect(url_for('portal.dashboard'))
 
 
 @portal_bp.route('/project/<int:project_id>/request-collab', methods=['POST'])
 @login_required
-@role_required(['Collaborator'])
+@role_required(['Collaborator', 'Researcher'])
 def request_collaboration(project_id):
     project = Project.query.get_or_404(project_id)
     
+    # Check that requesting user is not the project owner
+    if current_user.id == project.owner_id:
+        flash("Access Denied: You cannot request collaboration on your own project.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
     # Check if a request already exists
     existing_request = CollabRequest.query.filter_by(
         project_id=project_id,
@@ -437,7 +485,7 @@ def request_collaboration(project_id):
     log_event(
         action="COLLAB_REQUEST_SUBMITTED",
         user_id=current_user.id,
-        details=f"Collaborator requested to join project ID: {project_id} ('{project.title}')"
+        details=f"User requested to join project ID: {project_id} ('{project.title}')"
     )
     flash(f"Your request to collaborate on '{project.title}' has been submitted to the project owner.", "success")
     return redirect(url_for('portal.dashboard'))
@@ -488,4 +536,122 @@ def reject_collab_request(request_id):
         details=f"Declined collaboration request ID: {req.id} from user ID: {req.collaborator_id} for project: {project.title}"
     )
     flash(f"Declined collaboration request from '{req.collaborator.username}'.", "warning")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/document/<int:doc_id>/approve-upload', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def approve_upload(doc_id):
+    document = Document.query.get_or_404(doc_id)
+    project = Project.query.get(document.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot approve uploads for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    document.is_approved = True
+    db.session.commit()
+    
+    log_event(
+        action="FILE_UPLOAD_REQUEST_APPROVED",
+        user_id=current_user.id,
+        details=f"Approved document upload: {document.original_filename} (ID: {document.id}) on project: {project.title}"
+    )
+    flash(f"Approved upload request for '{document.original_filename}'.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/document/<int:doc_id>/reject-upload', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def reject_upload(doc_id):
+    document = Document.query.get_or_404(doc_id)
+    project = Project.query.get(document.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot reject uploads for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    filename = document.original_filename
+    uuid_filename = document.secure_uuid_filename
+    
+    # Delete from storage disk
+    try:
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], uuid_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except:
+        pass
+        
+    db.session.delete(document)
+    db.session.commit()
+    
+    log_event(
+        action="FILE_UPLOAD_REQUEST_DECLINED",
+        user_id=current_user.id,
+        details=f"Declined document upload: {filename} (ID: {doc_id}) on project: {project.title}"
+    )
+    flash(f"Declined and removed upload request for '{filename}'.", "warning")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/document/<int:doc_id>/approve-delete', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def approve_delete(doc_id):
+    document = Document.query.get_or_404(doc_id)
+    project = Project.query.get(document.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot approve deletion for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    filename = document.original_filename
+    uuid_filename = document.secure_uuid_filename
+    
+    # Delete from storage disk
+    try:
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], uuid_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except:
+        pass
+        
+    db.session.delete(document)
+    db.session.commit()
+    
+    log_event(
+        action="FILE_DELETE_REQUEST_APPROVED",
+        user_id=current_user.id,
+        details=f"Approved deletion request for document: {filename} (ID: {doc_id}) on project: {project.title}"
+    )
+    flash(f"Approved deletion of '{filename}'. The file has been permanently removed.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/document/<int:doc_id>/reject-delete', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def reject_delete(doc_id):
+    document = Document.query.get_or_404(doc_id)
+    project = Project.query.get(document.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot reject deletion for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    document.delete_requested = False
+    db.session.commit()
+    
+    log_event(
+        action="FILE_DELETE_REQUEST_DECLINED",
+        user_id=current_user.id,
+        details=f"Declined deletion request for document: {document.original_filename} (ID: {doc_id}) on project: {project.title}"
+    )
+    flash(f"Declined deletion request for '{document.original_filename}'.", "warning")
     return redirect(url_for('portal.dashboard'))

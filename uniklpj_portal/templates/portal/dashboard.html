@@ -27,6 +27,16 @@
 {% else %}
     <div class="grid-layout">
         {% for project in projects %}
+            {% set ns_collab = namespace(is_approved=false, req_status=none) %}
+            {% for req in project.collab_requests %}
+                {% if req.collaborator_id == current_user.id %}
+                    {% set ns_collab.req_status = req.status %}
+                    {% if req.status == 'Accepted' %}
+                        {% set ns_collab.is_approved = true %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+            
             <div class="glass-panel project-card">
                 <div>
                     <div class="project-header">
@@ -41,27 +51,51 @@
                 
                 <div class="uploaded-docs-list">
                     <h4 style="font-size: 0.95rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; color: #f9e076;">Uploaded Proposals</h4>
-                    {% if not project.documents %}
-                        <p style="font-size: 0.85rem; color: var(--text-muted); font-style: italic;">No PDF documents uploaded yet.</p>
+                    {% set ns_docs = namespace(has_visible=false) %}
+                    {% for doc in project.documents %}
+                        {% if doc.is_approved or current_user.is_admin() or project.owner_id == current_user.id or doc.uploaded_by == current_user.id %}
+                            {% set ns_docs.has_visible = true %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if not ns_docs.has_visible %}
+                        <p style="font-size: 0.85rem; color: var(--text-muted); font-style: italic;">No approved PDF documents uploaded yet.</p>
                     {% else %}
                         {% for doc in project.documents %}
-                            <div class="doc-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-                                <div class="doc-info" style="display: flex; flex-direction: column;">
-                                    <span class="doc-name" style="font-weight: 500; font-size: 0.9rem;">{{ doc.original_filename }}</span>
-                                    <span class="doc-meta" style="font-size: 0.75rem; color: var(--text-muted);">Uploaded on {{ doc.uploaded_at.strftime('%Y-%m-%d %H:%M') }} by {{ doc.uploader.username }}</span>
+                            {% if doc.is_approved or current_user.is_admin() or project.owner_id == current_user.id or doc.uploaded_by == current_user.id %}
+                                <div class="doc-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                    <div class="doc-info" style="display: flex; flex-direction: column;">
+                                        <span class="doc-name" style="font-weight: 500; font-size: 0.9rem;">
+                                            {{ doc.original_filename }}
+                                            {% if not doc.is_approved %}
+                                                <span style="color: #f9e076; font-size: 0.75rem; font-weight: 600; margin-left: 0.25rem;">(Pending Approval)</span>
+                                            {% endif %}
+                                            {% if doc.delete_requested %}
+                                                <span style="color: #ff3b30; font-size: 0.75rem; font-weight: 600; margin-left: 0.25rem;">(Deletion Requested)</span>
+                                            {% endif %}
+                                        </span>
+                                        <span class="doc-meta" style="font-size: 0.75rem; color: var(--text-muted);">Uploaded on {{ doc.uploaded_at.strftime('%Y-%m-%d %H:%M') }} by {{ doc.uploader.username }}</span>
+                                    </div>
+                                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        <a href="{{ url_for('portal.download_document', doc_id=doc.id) }}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; height: auto; border-radius: 4px;">
+                                            Download
+                                        </a>
+                                        {% if current_user.is_admin() or project.owner_id == current_user.id %}
+                                            <form action="{{ url_for('portal.delete_document', doc_id=doc.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Security Confirmation: Are you sure you want to permanently delete this document?');">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background-color: #dc3545; border: none; border-radius: 4px; color: white; cursor: pointer;">Delete</button>
+                                            </form>
+                                        {% elif ns_collab.is_approved %}
+                                            {% if not doc.delete_requested %}
+                                                <form action="{{ url_for('portal.delete_document', doc_id=doc.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Are you sure you want to request deletion for this document?');">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-color: #ff3b30; color: #ff3b30; height: auto; border-radius: 4px; cursor: pointer;">Request Delete</button>
+                                                </form>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                    <a href="{{ url_for('portal.download_document', doc_id=doc.id) }}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; height: auto;">
-                                        Download
-                                    </a>
-                                    {% if current_user.is_admin() or doc.uploaded_by == current_user.id %}
-                                        <form action="{{ url_for('portal.delete_document', doc_id=doc.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Security Confirmation: Are you sure you want to permanently delete this document?');">
-                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                            <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background-color: #dc3545; border: none; border-radius: 4px; color: white; cursor: pointer;">Delete</button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                            </div>
+                            {% endif %}
                         {% endfor %}
                     {% endif %}
                 </div>
@@ -118,30 +152,93 @@
                             {% endfor %}
                         </div>
                     {% endif %}
+
+                    <!-- Owner Upload Requests Approval list -->
+                    {% set ns_uploads = namespace(has_uploads=false) %}
+                    {% for doc in project.documents %}
+                        {% if not doc.is_approved %}
+                            {% set ns_uploads.has_uploads = true %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if ns_uploads.has_uploads %}
+                        <div class="pending-uploads-list" style="margin-top: 1.25rem; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 1rem;">
+                            <h5 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: #f9e076; font-weight: 500;">Pending Upload Requests</h5>
+                            {% for doc in project.documents %}
+                                {% if not doc.is_approved %}
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(249, 224, 118, 0.2); border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;">
+                                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">
+                                            {{ doc.original_filename }}
+                                            <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">by {{ doc.uploader.username }}</span>
+                                        </span>
+                                        <div style="display: flex; gap: 0.4rem;">
+                                            <form action="{{ url_for('portal.approve_upload', doc_id=doc.id) }}" method="POST" style="margin: 0; display: inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #34c759; color: #34c759; height: auto; border-radius: 4px;">Approve</button>
+                                            </form>
+                                            <form action="{{ url_for('portal.reject_upload', doc_id=doc.id) }}" method="POST" style="margin: 0; display: inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #ff3b30; color: #ff3b30; height: auto; border-radius: 4px;">Decline</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Owner Delete Requests Approval list -->
+                    {% set ns_deletes = namespace(has_deletes=false) %}
+                    {% for doc in project.documents %}
+                        {% if doc.delete_requested %}
+                            {% set ns_deletes.has_deletes = true %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if ns_deletes.has_deletes %}
+                        <div class="pending-deletes-list" style="margin-top: 1.25rem; border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 1rem;">
+                            <h5 style="font-size: 0.9rem; margin-bottom: 0.75rem; color: #ff3b30; font-weight: 500;">Pending Delete Requests</h5>
+                            {% for doc in project.documents %}
+                                {% if doc.delete_requested %}
+                                    <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 59, 48, 0.2); border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem;">
+                                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-main);">
+                                            {{ doc.original_filename }}
+                                            <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">by {{ doc.uploader.username }}</span>
+                                        </span>
+                                        <div style="display: flex; gap: 0.4rem;">
+                                            <form action="{{ url_for('portal.approve_delete', doc_id=doc.id) }}" method="POST" style="margin: 0; display: inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #34c759; color: #34c759; height: auto; border-radius: 4px;">Approve</button>
+                                            </form>
+                                            <form action="{{ url_for('portal.reject_delete', doc_id=doc.id) }}" method="POST" style="margin: 0; display: inline;">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <button type="submit" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; border-color: #ff3b30; color: #ff3b30; height: auto; border-radius: 4px;">Decline</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 {% endif %}
                 
                 <div class="project-footer" style="display: flex; gap: 0.75rem; align-items: center; justify-content: flex-start; margin-top: 1.5rem;">
-                    {% if current_user.is_admin() or project.owner_id == current_user.id %}
+                    {% if current_user.is_admin() or project.owner_id == current_user.id or ns_collab.is_approved %}
                         <a href="{{ url_for('portal.upload_document', project_id=project.id) }}" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; border-radius: 4px;">
                             Upload PDF
                         </a>
                         <a href="{{ url_for('portal.edit_project', project_id=project.id) }}" class="btn btn-gold" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; border-radius: 4px; background-color: #f9e076; color: #1a1e29; border: none; text-decoration: none; font-weight: 500;">
                             Edit
                         </a>
+                    {% endif %}
+                    {% if current_user.is_admin() or project.owner_id == current_user.id %}
                         <form action="{{ url_for('portal.delete_project', project_id=project.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Security Confirmation: Are you sure you want to permanently delete this project proposal and all its uploaded PDF documents? This action cannot be undone.');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-danger" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; border-radius: 4px; background-color: #dc3545; border: none; color: white; cursor: pointer;">Delete</button>
                         </form>
                     {% endif %}
 
-                    {% if current_user.is_collaborator() %}
-                        {% set ns_collab = namespace(req_status=none) %}
-                        {% for req in project.collab_requests %}
-                            {% if req.collaborator_id == current_user.id %}
-                                {% set ns_collab.req_status = req.status %}
-                            {% endif %}
-                        {% endfor %}
-                        
+                    {% if (current_user.is_collaborator() or current_user.is_researcher()) and project.owner_id != current_user.id %}
                         {% if ns_collab.req_status == 'Accepted' %}
                             <span class="btn btn-outline" style="padding: 0.4rem 0.9rem; font-size: 0.85rem; border-color: #34c759; color: #34c759; cursor: default; border-radius: 4px;" disabled>
                                 ✓ Collaborating

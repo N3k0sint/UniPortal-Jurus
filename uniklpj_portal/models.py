@@ -75,6 +75,8 @@ class Document(db.Model):
     mime_type = db.Column(db.String(100), nullable=False)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
     uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    is_approved = db.Column(db.Boolean, default=True, nullable=False)
+    delete_requested = db.Column(db.Boolean, default=False, nullable=False)
     uploaded_at = db.Column(db.DateTime, default=get_myt_now)
 
     def __repr__(self):
