@@ -1,10 +1,12 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+import io
+from xhtml2pdf import pisa
+from flask import Blueprint, render_template, redirect, url_for, flash, request, send_file
 from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, Regexp, ValidationError
 
-from uniklpj_portal.models import db, User, Project, Role, AuditLog
+from uniklpj_portal.models import db, User, Project, Role, AuditLog, get_myt_now
 from uniklpj_portal.routes.auth import log_event, role_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -154,3 +156,40 @@ def delete_user(user_id):
     )
     flash(f"User account '{username}' has been successfully deleted.", "success")
     return redirect(url_for('admin.manage_users'))
+
+
+@admin_bp.route('/admin/logs/anomaly-pdf')
+@login_required
+@role_required(['Admin'])
+def download_anomaly_pdf():
+    suspicious_actions = [
+        'USER_LOGIN_FAILED',
+        'UNAUTHORIZED_ACCESS_ATTEMPT',
+        'MALICIOUS_FILE_UPLOAD_BLOCKED',
+        'MALICIOUS_FILE_SIGNATURE_BLOCKED',
+        'UNAUTHORIZED_FILE_UPLOAD_ATTEMPT',
+        'UNAUTHORIZED_PROJECT_EDIT_ATTEMPT',
+        'UNAUTHORIZED_PROJECT_DELETE_ATTEMPT',
+        'UNAUTHORIZED_FILE_DELETE_ATTEMPT',
+        'USER_PASSWORD_CHANGE_FAILED',
+        'ADMIN_EDIT_USER',
+        'ADMIN_DELETE_USER',
+        'ADMIN_DELETE_PROJECT'
+    ]
+    logs = AuditLog.query.filter(AuditLog.action.in_(suspicious_actions)).order_by(AuditLog.timestamp.desc()).all()
+    
+    rendered_html = render_template('admin/anomaly_report.html', logs=logs, generated_time=get_myt_now().strftime('%Y-%m-%d %H:%M:%S'))
+    
+    pdf_buffer = io.BytesIO()
+    pisa_status = pisa.CreatePDF(rendered_html, dest=pdf_buffer)
+    if pisa_status.err:
+        flash("Failed to generate PDF audit report.", "danger")
+        return redirect(url_for('admin.view_logs'))
+        
+    pdf_buffer.seek(0)
+    return send_file(
+        pdf_buffer,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=f"uniklpj_anomaly_report_{get_myt_now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    )

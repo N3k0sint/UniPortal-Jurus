@@ -21,7 +21,6 @@
                     {% if current_user.is_authenticated %}
                         <li><a href="{{ url_for('portal.dashboard') }}" class="nav-link">Dashboard</a></li>
                         <li><a href="{{ url_for('portal.edit_profile') }}" class="nav-link">Edit Profile</a></li>
-                        <li><a href="{{ url_for('portal.change_password') }}" class="nav-link">Change Password</a></li>
                         
                         {% if current_user.is_admin() %}
                             <li><a href="{{ url_for('admin.view_logs') }}" class="nav-link">Audit Logs</a></li>

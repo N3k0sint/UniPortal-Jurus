@@ -3,10 +3,15 @@
 {% block title %}System Audit Logs - Admin Control Panel{% endblock %}
 
 {% block content %}
-<div class="dashboard-header">
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
     <div class="dashboard-title">
         <h1>Administrative Audit Logs</h1>
         <p>Full system events, authentication audits, and access control trace log.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('admin.download_anomaly_pdf') }}" class="btn btn-gold" style="padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid #f9e076; color: #1a1e29; background-color: #f9e076; font-weight: 500; font-size: 0.95rem; text-decoration: none; display: inline-block;">
+            Download Security Anomaly PDF
+        </a>
     </div>
 </div>
 

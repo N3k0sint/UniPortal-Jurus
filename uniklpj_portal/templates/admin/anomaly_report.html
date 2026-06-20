@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            size: letter portrait;
+            @bottom-right {
+                content: "Page " counter(page);
+                font-size: 8pt;
+                color: #888;
+            }
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            color: #333;
+            margin: 15px;
+            font-size: 10pt;
+            line-height: 1.4;
+        }
+        h1 {
+            color: #b91c1c;
+            border-bottom: 2px solid #b91c1c;
+            padding-bottom: 8px;
+            font-size: 20pt;
+            margin-top: 10px;
+        }
+        .header-table {
+            width: 100%;
+            margin-bottom: 25px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 15px;
+        }
+        .header-title {
+            font-size: 18pt;
+            font-weight: bold;
+            color: #111827;
+        }
+        .header-sub {
+            font-size: 11pt;
+            color: #4b5563;
+        }
+        .header-meta {
+            text-align: right;
+            font-size: 9pt;
+            color: #4b5563;
+        }
+        .intro-text {
+            margin-bottom: 20px;
+            font-size: 10pt;
+            color: #374151;
+        }
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .log-table th, .log-table td {
+            border: 1px solid #e5e7eb;
+            padding: 8px 6px;
+            text-align: left;
+            font-size: 8.5pt;
+        }
+        .log-table th {
+            background-color: #f3f4f6;
+            color: #111827;
+            font-weight: bold;
+            border-bottom: 2px solid #d1d5db;
+        }
+        .action-alert {
+            color: #b91c1c;
+            font-weight: bold;
+        }
+        .action-admin {
+            color: #b45309;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 50px;
+            font-size: 8pt;
+            color: #9ca3af;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <table class="header-table">
+        <tr>
+            <td style="width: 60%;">
+                <div class="header-title">UniKL PJ Collaboration Portal</div>
+                <div class="header-sub">Security Audits & Anomalies Report</div>
+            </td>
+            <td style="width: 40%;" class="header-meta">
+                <strong>Generated On (MYT):</strong> {{ generated_time }}<br>
+                <strong>Scope:</strong> Security Alarms & Critical Audits<br>
+                <strong>Classification:</strong> Confidential / Restricted
+            </td>
+        </tr>
+    </table>
+
+    <h1>Security Incident Log (Anomalies & Critical Alerts)</h1>
+    <p class="intro-text">
+        This document lists all system operational alerts, failed logins, unauthorized access attempts, and administrative modifications captured by the active logging system. The activities below have been filtered based on their security relevance and risk rating.
+    </p>
+
+    <table class="log-table">
+        <thead>
+            <tr>
+                <th style="width: 20%;">Timestamp</th>
+                <th style="width: 20%;">Operator</th>
+                <th style="width: 25%;">Security Action</th>
+                <th style="width: 15%;">IP Address</th>
+                <th style="width: 20%;">Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if not logs %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #6b7280; font-style: italic; padding: 15px;">No critical anomalies or alert events logged.</td>
+                </tr>
+            {% else %}
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>
+                        {% if log.user %}
+                            {{ log.user.username }} (ID: {{ log.user.id }})
+                        {% else %}
+                            <span style="color: #ef4444; font-style: italic;">Unauthenticated</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="{% if 'FAILED' in log.action or 'BLOCKED' in log.action or 'UNAUTHORIZED' in log.action %}action-alert{% else %}action-admin{% endif %}">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td style="font-family: Courier, monospace;">{{ log.ip_address }}</td>
+                    <td>{{ log.details }}</td>
+                </tr>
+                {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div class="footer">
+        CONFIDENTIAL - SYSTEM AUDIT REPORT - FOR INTERNAL SECURITY USE ONLY
+    </div>
+</body>
+</html>
