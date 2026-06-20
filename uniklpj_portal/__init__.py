@@ -5,6 +5,8 @@ from flask_bcrypt import Bcrypt
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from dotenv import load_dotenv
+from flask_limiter import Limiter
+from flask_limiter.errors import RateLimitExceeded
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +14,18 @@ load_dotenv()
 bcrypt = Bcrypt()
 login_manager = LoginManager()
 csrf = CSRFProtect()
+
+def get_secure_remote_address():
+    # Retrieve IP from X-Forwarded-For proxy chain if it exists
+    ip_addr = request.remote_addr or '127.0.0.1'
+    if request.headers.getlist("X-Forwarded-For"):
+        x_forwarded_for = request.headers.getlist("X-Forwarded-For")[0]
+        ip_addr = x_forwarded_for.split(',')[0].strip()
+    return ip_addr
+
+# Initialize Flask-Limiter with custom remote address function
+limiter = Limiter(key_func=get_secure_remote_address)
+
 
 def create_app():
     app = Flask(__name__)
@@ -40,6 +54,7 @@ def create_app():
     bcrypt.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
+    limiter.init_app(app)
     
     # Configure Login Manager
     login_manager.login_view = 'auth.login'
@@ -77,6 +92,18 @@ def create_app():
     def internal_error(error):
         # We suppress stack trace output to standard users for secure deployment
         return render_template('errors/500.html'), 500
+
+    @app.errorhandler(RateLimitExceeded)
+    def rate_limit_exceeded(error):
+        from uniklpj_portal.routes.auth import log_event
+        from flask_login import current_user
+        user_id = current_user.id if (current_user and current_user.is_authenticated) else None
+        log_event(
+            action="RATE_LIMIT_EXCEEDED",
+            user_id=user_id,
+            details=f"Rate limit exceeded on: {request.path}. Details: {error.description}"
+        )
+        return render_template('errors/429.html', error_message=error.description), 429
         
     # Inject security headers globally to all responses
     @app.after_request

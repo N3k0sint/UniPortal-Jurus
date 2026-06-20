@@ -6,7 +6,7 @@ from wtforms.validators import DataRequired, Email, Length, EqualTo, Regexp, Val
 from functools import wraps
 
 from uniklpj_portal.models import db, User, Role, AuditLog
-from uniklpj_portal import bcrypt
+from uniklpj_portal import bcrypt, limiter
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -106,6 +106,7 @@ class RegisterForm(FlaskForm):
 
 # --- Routes ---
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=["POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('portal.dashboard'))
@@ -137,6 +138,7 @@ def login():
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit("10 per hour", methods=["POST"])
 def register():
     if current_user.is_authenticated:
         return redirect(url_for('portal.dashboard'))

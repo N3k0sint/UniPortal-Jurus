@@ -8,3 +8,5 @@ python-magic==0.4.27
 psycopg2-binary==2.9.9
 gunicorn==22.0.0
 email-validator==2.1.1
+Flask-Limiter==3.7.0
+

@@ -9,7 +9,7 @@ from wtforms.validators import DataRequired, Length, Email, Regexp, ValidationEr
 
 from uniklpj_portal.models import db, User, Project, Document, CollabRequest
 from uniklpj_portal.routes.auth import log_event, role_required
-from uniklpj_portal import bcrypt
+from uniklpj_portal import bcrypt, limiter
 
 # --- WTForms for Secure User Profile Modification ---
 class EditProfileForm(FlaskForm):
@@ -98,6 +98,7 @@ def dashboard():
 @portal_bp.route('/project/new', methods=['GET', 'POST'])
 @login_required
 @role_required(['Admin', 'Researcher']) # Collaborators cannot create projects
+@limiter.limit("10 per hour", methods=["POST"])
 def create_project():
     form = ProjectForm()
     if form.validate_on_submit():
@@ -123,6 +124,7 @@ def create_project():
 @portal_bp.route('/project/<int:project_id>/upload', methods=['GET', 'POST'])
 @login_required
 @role_required(['Admin', 'Researcher', 'Collaborator'])
+@limiter.limit("10 per minute", methods=["POST"])
 def upload_document(project_id):
     project = Project.query.get_or_404(project_id)
     

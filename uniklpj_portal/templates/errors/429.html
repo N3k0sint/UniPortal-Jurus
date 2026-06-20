@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}429 - Too Many Requests{% endblock %}
+
+{% block content %}
+<div class="error-container glass-panel">
+    <div class="error-code" style="background: linear-gradient(90deg, #ff9500 0%, #ffcc00 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">429</div>
+    <h1 class="error-title">Too Many Requests</h1>
+    <p class="error-message">
+        {% if error_message %}
+            {{ error_message }}
+        {% else %}
+            You have sent too many requests in a short period of time. To maintain system security and stability, your rate limit has been exceeded. Please wait a moment and try again.
+        {% endif %}
+    </p>
+    <a href="{{ url_for('portal.dashboard') }}" class="btn btn-gold">Return to Dashboard</a>
+</div>
+{% endblock %}
