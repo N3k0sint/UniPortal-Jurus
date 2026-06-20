@@ -6,12 +6,24 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SelectField, SubmitField
 from wtforms.validators import DataRequired, Email, Length, Regexp, ValidationError
 
-from uniklpj_portal.models import db, User, Project, Role, AuditLog, get_myt_now
+from uniklpj_portal.models import db, User, Project, Role, AuditLog, get_myt_now, BlockedIP
 from uniklpj_portal.routes.auth import log_event, role_required
 
 admin_bp = Blueprint('admin', __name__)
 
-# --- WTForms for Secure Admin Editing ---
+# --- WTForms for Secure Admin Editing & SOC controls ---
+class BlockIPForm(FlaskForm):
+    ip_address = StringField('IP Address', validators=[
+        DataRequired(),
+        Length(max=45),
+        Regexp(r'^([0-9a-fA-F:.]+)$', message="Invalid IP address format. Alphanumeric IP format only.")
+    ])
+    reason = StringField('Reason / Incident Details', validators=[
+        Length(max=255)
+    ])
+    submit = SubmitField('Block IP Address')
+
+
 class EditUserForm(FlaskForm):
     username = StringField('Username', validators=[
         DataRequired(),
@@ -193,3 +205,82 @@ def download_anomaly_pdf():
         as_attachment=True,
         download_name=f"uniklpj_anomaly_report_{get_myt_now().strftime('%Y%m%d_%H%M%S')}.pdf"
     )
+
+
+@admin_bp.route('/admin/security', methods=['GET', 'POST'])
+@login_required
+@role_required(['Admin'])
+def security_dashboard():
+    form = BlockIPForm()
+    
+    # Process IP blocking form
+    if form.validate_on_submit():
+        ip_addr = form.ip_address.data.strip()
+        reason = form.reason.data.strip()
+        
+        if BlockedIP.query.filter_by(ip_address=ip_addr).first():
+            flash(f"IP Address {ip_addr} is already blocked.", "warning")
+        else:
+            new_block = BlockedIP(ip_address=ip_addr, reason=reason)
+            db.session.add(new_block)
+            db.session.commit()
+            log_event(
+                action="ADMIN_IP_BLOCK",
+                user_id=current_user.id,
+                details=f"Admin blocked IP Address: {ip_addr}. Reason: {reason}"
+            )
+            flash(f"IP Address {ip_addr} has been successfully blocked at application layer.", "success")
+        return redirect(url_for('admin.security_dashboard'))
+
+    # Load all users (except currently logged in admin) to allow toggling blocks
+    users = User.query.filter(User.id != current_user.id).order_by(User.username).all()
+    blocked_ips = BlockedIP.query.order_by(BlockedIP.blocked_at.desc()).all()
+    
+    return render_template('admin/security.html', form=form, users=users, blocked_ips=blocked_ips)
+
+
+@admin_bp.route('/admin/user/<int:user_id>/toggle-block', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def toggle_user_block(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Prevent admin self-lockout
+    if user.id == current_user.id:
+        flash("Access Denied: You cannot suspend your own administrative account.", "danger")
+        return redirect(url_for('admin.security_dashboard'))
+        
+    user.is_blocked = not user.is_blocked
+    db.session.commit()
+    
+    action_type = "ADMIN_USER_SUSPEND" if user.is_blocked else "ADMIN_USER_UNSUSPEND"
+    details_text = f"Admin suspended user account: {user.username} (ID: {user.id})" if user.is_blocked else f"Admin unsuspended user account: {user.username} (ID: {user.id})"
+    
+    log_event(
+        action=action_type,
+        user_id=current_user.id,
+        details=details_text
+    )
+    
+    flash(f"Account state for '{user.username}' updated successfully.", "success")
+    return redirect(url_for('admin.security_dashboard'))
+
+
+@admin_bp.route('/admin/ip/<int:ip_id>/unblock', methods=['POST'])
+@login_required
+@role_required(['Admin'])
+def unblock_ip(ip_id):
+    blocked_ip = BlockedIP.query.get_or_404(ip_id)
+    ip_addr = blocked_ip.ip_address
+    
+    db.session.delete(blocked_ip)
+    db.session.commit()
+    
+    log_event(
+        action="ADMIN_IP_UNBLOCK",
+        user_id=current_user.id,
+        details=f"Admin removed IP block for: {ip_addr}"
+    )
+    
+    flash(f"IP Address {ip_addr} has been successfully unblocked.", "success")
+    return redirect(url_for('admin.security_dashboard'))

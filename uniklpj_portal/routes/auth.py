@@ -114,6 +114,11 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user and bcrypt.check_password_hash(user.password_hash, form.password.data):
+            if user.is_blocked:
+                log_event(action="USER_LOGIN_BLOCKED", user_id=user.id, details="Attempted login on a suspended/blocked account.")
+                flash("Your account has been suspended by system administrators.", "danger")
+                return redirect(url_for('auth.login'))
+                
             login_user(user)
             log_event(action="USER_LOGIN_SUCCESS", user_id=user.id, details="Successfully signed in.")
             flash(f"Welcome back, {user.username}!", "success")

@@ -29,6 +29,7 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
+    is_blocked = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=get_myt_now)
     
     projects = db.relationship('Project', backref='owner', lazy=True)
@@ -92,3 +93,31 @@ class AuditLog(db.Model):
 
     def __repr__(self):
         return f"<AuditLog {self.action} by User {self.user_id} at {self.timestamp}>"
+
+
+class BlockedIP(db.Model):
+    __tablename__ = 'blocked_ips'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), unique=True, nullable=False)
+    blocked_at = db.Column(db.DateTime, default=get_myt_now)
+    reason = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return f"<BlockedIP {self.ip_address}>"
+
+
+class CollabRequest(db.Model):
+    __tablename__ = 'collab_requests'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False)
+    collaborator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    status = db.Column(db.String(20), default='Pending', nullable=False) # Pending, Accepted, Rejected
+    created_at = db.Column(db.DateTime, default=get_myt_now)
+    
+    project = db.relationship('Project', backref=db.backref('collab_requests', lazy=True, cascade="all, delete-orphan"))
+    collaborator = db.relationship('User', foreign_keys=[collaborator_id], backref=db.backref('collab_requests', lazy=True))
+
+    def __repr__(self):
+        return f"<CollabRequest User {self.collaborator_id} to Project {self.project_id} Status {self.status}>"

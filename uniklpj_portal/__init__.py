@@ -88,7 +88,19 @@ def create_app():
         return response
 
     @app.before_request
-    def make_session_permanent():
+    def block_blacklisted_ips_and_make_session_permanent():
+        # Get client IP securely
+        ip_addr = request.remote_addr or '127.0.0.1'
+        if request.headers.getlist("X-Forwarded-For"):
+            x_forwarded_for = request.headers.getlist("X-Forwarded-For")[0]
+            ip_addr = x_forwarded_for.split(',')[0].strip()
+            
+        # We need to import BlockedIP inside the request context
+        from uniklpj_portal.models import BlockedIP
+        if BlockedIP.query.filter_by(ip_address=ip_addr).first():
+            # Return custom 403 error page with an IP blocking explanation
+            return render_template('errors/403.html', error_message="Access Denied: Your IP address has been dynamically blocked by system administrators due to security alerts."), 403
+            
         # Set session to permanent before request so the 1-hour timeout constraint is active
         session.permanent = True
 

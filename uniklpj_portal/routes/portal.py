@@ -7,7 +7,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, TextAreaField, FileField, SubmitField, PasswordField
 from wtforms.validators import DataRequired, Length, Email, Regexp, ValidationError, EqualTo
 
-from uniklpj_portal.models import db, User, Project, Document
+from uniklpj_portal.models import db, User, Project, Document, CollabRequest
 from uniklpj_portal.routes.auth import log_event, role_required
 from uniklpj_portal import bcrypt
 
@@ -407,4 +407,85 @@ def delete_document(doc_id):
         details=f"Deleted document: {filename} (UUID: {uuid_filename}) from project: {project.title}"
     )
     flash(f"Document '{filename}' has been deleted successfully.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/project/<int:project_id>/request-collab', methods=['POST'])
+@login_required
+@role_required(['Collaborator'])
+def request_collaboration(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Check if a request already exists
+    existing_request = CollabRequest.query.filter_by(
+        project_id=project_id,
+        collaborator_id=current_user.id
+    ).first()
+    
+    if existing_request:
+        flash(f"You have already submitted a collaboration request for '{project.title}'. Status: {existing_request.status}", "warning")
+        return redirect(url_for('portal.dashboard'))
+        
+    new_request = CollabRequest(
+        project_id=project_id,
+        collaborator_id=current_user.id,
+        status='Pending'
+    )
+    db.session.add(new_request)
+    db.session.commit()
+    
+    log_event(
+        action="COLLAB_REQUEST_SUBMITTED",
+        user_id=current_user.id,
+        details=f"Collaborator requested to join project ID: {project_id} ('{project.title}')"
+    )
+    flash(f"Your request to collaborate on '{project.title}' has been submitted to the project owner.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/collab-request/<int:request_id>/approve', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def approve_collab_request(request_id):
+    req = CollabRequest.query.get_or_404(request_id)
+    project = Project.query.get(req.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot approve requests for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    req.status = 'Accepted'
+    db.session.commit()
+    
+    log_event(
+        action="COLLAB_REQUEST_APPROVED",
+        user_id=current_user.id,
+        details=f"Approved collaboration request ID: {req.id} from user ID: {req.collaborator_id} for project: {project.title}"
+    )
+    flash(f"Approved collaboration request from '{req.collaborator.username}'.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/collab-request/<int:request_id>/reject', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def reject_collab_request(request_id):
+    req = CollabRequest.query.get_or_404(request_id)
+    project = Project.query.get(req.project_id)
+    
+    # Access Control: Project owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        flash("Access Denied: You cannot decline requests for projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    req.status = 'Rejected'
+    db.session.commit()
+    
+    log_event(
+        action="COLLAB_REQUEST_DECLINED",
+        user_id=current_user.id,
+        details=f"Declined collaboration request ID: {req.id} from user ID: {req.collaborator_id} for project: {project.title}"
+    )
+    flash(f"Declined collaboration request from '{req.collaborator.username}'.", "warning")
     return redirect(url_for('portal.dashboard'))
