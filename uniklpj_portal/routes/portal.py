@@ -4,11 +4,12 @@ import magic
 from flask import Blueprint, render_template, redirect, url_for, flash, request, send_from_directory, current_app
 from flask_login import login_required, current_user
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, FileField, SubmitField
-from wtforms.validators import DataRequired, Length, Email, Regexp, ValidationError
+from wtforms import StringField, TextAreaField, FileField, SubmitField, PasswordField
+from wtforms.validators import DataRequired, Length, Email, Regexp, ValidationError, EqualTo
 
 from uniklpj_portal.models import db, User, Project, Document
 from uniklpj_portal.routes.auth import log_event, role_required
+from uniklpj_portal import bcrypt
 
 # --- WTForms for Secure User Profile Modification ---
 class EditProfileForm(FlaskForm):
@@ -37,6 +38,32 @@ class EditProfileForm(FlaskForm):
         if field.data != self.original_user.email:
             if User.query.filter_by(email=field.data).first():
                 raise ValidationError('Email address is already registered.')
+
+
+class ChangePasswordForm(FlaskForm):
+    current_password = PasswordField('Current Password', validators=[DataRequired()])
+    new_password = PasswordField('New Password', validators=[
+        DataRequired(),
+        Length(min=8, message="Password must be at least 8 characters long.")
+    ])
+    confirm_password = PasswordField('Confirm New Password', validators=[
+        DataRequired(),
+        EqualTo('new_password', message="Passwords must match.")
+    ])
+    submit = SubmitField('Change Password')
+
+    # Enforce password complexity check (aligned with JURUS password standards)
+    def validate_new_password(self, field):
+        p = field.data
+        if not any(char.isdigit() for char in p):
+            raise ValidationError('Password must contain at least one digit.')
+        if not any(char.isupper() for char in p):
+            raise ValidationError('Password must contain at least one uppercase letter.')
+        if not any(char.islower() for char in p):
+            raise ValidationError('Password must contain at least one lowercase letter.')
+        if not any(char in '!@#$%^&*()_+=-[]{}|;:,.<>?/~`' for char in p):
+            raise ValidationError('Password must contain at least one special character.')
+
 
 portal_bp = Blueprint('portal', __name__)
 
@@ -233,3 +260,151 @@ def edit_profile():
         form.email.data = current_user.email
         
     return render_template('portal/edit_profile.html', form=form)
+
+
+@portal_bp.route('/profile/change-password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        # Validate current password
+        if not bcrypt.check_password_hash(current_user.password_hash, form.current_password.data):
+            log_event(
+                action="USER_PASSWORD_CHANGE_FAILED",
+                user_id=current_user.id,
+                details="Attempted password change with incorrect current password."
+            )
+            flash("Current password is incorrect.", "danger")
+            return redirect(url_for('portal.change_password'))
+        
+        # Hash new password
+        hashed_password = bcrypt.generate_password_hash(form.new_password.data).decode('utf-8')
+        current_user.password_hash = hashed_password
+        db.session.commit()
+        
+        log_event(
+            action="USER_PASSWORD_CHANGE_SUCCESS",
+            user_id=current_user.id,
+            details="Password successfully changed."
+        )
+        flash("Your password has been successfully updated.", "success")
+        return redirect(url_for('portal.dashboard'))
+        
+    return render_template('portal/change_password.html', form=form)
+
+
+@portal_bp.route('/project/<int:project_id>/edit', methods=['GET', 'POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def edit_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Access Control: Owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        log_event(
+            action="UNAUTHORIZED_PROJECT_EDIT_ATTEMPT",
+            user_id=current_user.id,
+            details=f"Attempted to edit project ID: {project_id} owned by user ID: {project.owner_id}"
+        )
+        flash("Access Denied: You cannot edit projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    form = ProjectForm()
+    if form.validate_on_submit():
+        old_title = project.title
+        project.title = form.title.data
+        project.description = form.description.data
+        db.session.commit()
+        
+        log_event(
+            action="PROJECT_EDIT_SUCCESS",
+            user_id=current_user.id,
+            details=f"Updated project ID: {project.id}. Title changed from '{old_title}' to '{project.title}'."
+        )
+        flash("Project proposal updated successfully!", "success")
+        return redirect(url_for('portal.dashboard'))
+        
+    elif request.method == 'GET':
+        form.title.data = project.title
+        form.description.data = project.description
+        
+    return render_template('portal/edit_project.html', form=form, project=project)
+
+
+@portal_bp.route('/project/<int:project_id>/delete', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def delete_project(project_id):
+    project = Project.query.get_or_404(project_id)
+    
+    # Access Control: Owner or Admin only
+    if not current_user.is_admin() and project.owner_id != current_user.id:
+        log_event(
+            action="UNAUTHORIZED_PROJECT_DELETE_ATTEMPT",
+            user_id=current_user.id,
+            details=f"Attempted to delete project ID: {project_id} owned by user ID: {project.owner_id}"
+        )
+        flash("Access Denied: You cannot delete projects you do not own.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    title = project.title
+    # Manually delete all files from storage disk first
+    for doc in project.documents:
+        try:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], doc.secure_uuid_filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            # Continue deleting other files and database record
+            pass
+            
+    db.session.delete(project)
+    db.session.commit()
+    
+    log_event(
+        action="PROJECT_DELETE_SUCCESS",
+        user_id=current_user.id,
+        details=f"Deleted project: {title} (ID: {project_id})"
+    )
+    flash(f"Project '{title}' and all its uploaded files have been deleted successfully.", "success")
+    return redirect(url_for('portal.dashboard'))
+
+
+@portal_bp.route('/document/<int:doc_id>/delete', methods=['POST'])
+@login_required
+@role_required(['Admin', 'Researcher'])
+def delete_document(doc_id):
+    document = Document.query.get_or_404(doc_id)
+    project = Project.query.get(document.project_id)
+    
+    # Access Control: Document uploader or Admin only
+    if not current_user.is_admin() and document.uploaded_by != current_user.id:
+        log_event(
+            action="UNAUTHORIZED_FILE_DELETE_ATTEMPT",
+            user_id=current_user.id,
+            details=f"Attempted to delete document ID: {doc_id} uploaded by user ID: {document.uploaded_by}"
+        )
+        flash("Access Denied: You cannot delete files you did not upload.", "danger")
+        return redirect(url_for('portal.dashboard'))
+        
+    filename = document.original_filename
+    uuid_filename = document.secure_uuid_filename
+    
+    # Delete from storage disk
+    try:
+        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], uuid_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        pass
+        
+    db.session.delete(document)
+    db.session.commit()
+    
+    log_event(
+        action="FILE_DELETE_SUCCESS",
+        user_id=current_user.id,
+        details=f"Deleted document: {filename} (UUID: {uuid_filename}) from project: {project.title}"
+    )
+    flash(f"Document '{filename}' has been deleted successfully.", "success")
+    return redirect(url_for('portal.dashboard'))

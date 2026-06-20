@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Project - UniKL PJ Collaboration Portal{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper glass-panel" style="max-width: 700px; margin: 2rem auto;">
+    <h2 class="form-title">Edit Project Proposal</h2>
+    <p class="form-subtitle" style="margin-bottom: 2rem; color: var(--text-muted);">Update the research scope and description for your project.</p>
+    
+    <form method="POST" action="{{ url_for('portal.edit_project', project_id=project.id) }}" novalidate onsubmit="return confirm('Security Confirmation: Are you sure you want to save changes to this project proposal?');">
+        <!-- Security Token injection (CSRF Protection) -->
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+            {{ form.title.label(class="form-label", style="display: block; margin-bottom: 0.5rem; color: #f9e076;") }}
+            {{ form.title(class="form-control", placeholder="Enter clear, descriptive project title", style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white; box-sizing: border-box;") }}
+            {% if form.title.errors %}
+                {% for error in form.title.errors %}
+                    <span class="form-error" style="color: #ff6b6b; font-size: 0.85rem; display: block; margin-top: 0.25rem;">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group" style="margin-bottom: 2rem;">
+            {{ form.description.label(class="form-label", style="display: block; margin-bottom: 0.5rem; color: #f9e076;") }}
+            {{ form.description(class="form-control", placeholder="Describe the scope, objectives, and collaborators needed", style="width: 100%; padding: 0.75rem; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 6px; color: white; box-sizing: border-box;", rows="10") }}
+            {% if form.description.errors %}
+                {% for error in form.description.errors %}
+                    <span class="form-error" style="color: #ff6b6b; font-size: 0.85rem; display: block; margin-top: 0.25rem;">{{ error }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        <div class="form-group" style="display: flex; flex-direction: row; gap: 1rem; justify-content: flex-end;">
+            <a href="{{ url_for('portal.dashboard') }}" class="btn btn-outline" style="padding: 0.6rem 1.2rem; border-radius: 6px;">Cancel</a>
+            {{ form.submit(class="btn btn-primary", style="padding: 0.6rem 1.2rem; border-radius: 6px; background-color: var(--primary-color); border: none; color: white; cursor: pointer;") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

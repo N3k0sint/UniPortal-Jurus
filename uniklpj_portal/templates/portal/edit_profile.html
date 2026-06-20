@@ -7,7 +7,7 @@
     <h2 class="form-title">Edit Your Profile</h2>
     <p class="form-subtitle">Update your account username and contact email address.</p>
     
-    <form method="POST" action="{{ url_for('portal.edit_profile') }}" novalidate>
+    <form method="POST" action="{{ url_for('portal.edit_profile') }}" novalidate onsubmit="return confirm('Security Confirmation: Are you sure you want to update your profile details?');">
         <!-- Security Token injection (CSRF Protection) -->
         {{ form.hidden_tag() }}
         
