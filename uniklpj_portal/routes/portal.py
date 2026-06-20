@@ -97,7 +97,7 @@ def dashboard():
 
 @portal_bp.route('/project/new', methods=['GET', 'POST'])
 @login_required
-@role_required(['Admin', 'Researcher']) # Collaborators cannot create projects
+@role_required(['Researcher']) # Only Researchers can create projects
 @limiter.limit("10 per hour", methods=["POST"])
 def create_project():
     form = ProjectForm()
@@ -145,7 +145,7 @@ def upload_document(project_id):
         file = form.document.data
         if not file or file.filename == '':
             flash("No file selected.", "danger")
-            return redirect(request.url)
+            return redirect(url_for('portal.upload_document', project_id=project_id))
             
         original_name = file.filename
         
@@ -158,7 +158,7 @@ def upload_document(project_id):
                 details=f"Blocked invalid file extension: {original_name}"
             )
             flash("Upload Failed: Only PDF (.pdf) documents are allowed.", "danger")
-            return redirect(request.url)
+            return redirect(url_for('portal.upload_document', project_id=project_id))
             
         # 2. Check MIME-type using libmagic (Deep packet inspection)
         try:
@@ -175,10 +175,10 @@ def upload_document(project_id):
                     details=f"Blocked spoofed PDF file signature. Detected MIME: {mime_type} for file: {original_name}"
                 )
                 flash("Upload Failed: Spoofed file detected. The file content is not a valid PDF.", "danger")
-                return redirect(request.url)
+                return redirect(url_for('portal.upload_document', project_id=project_id))
         except Exception as e:
             flash(f"Error checking file format: {str(e)}", "danger")
-            return redirect(request.url)
+            return redirect(url_for('portal.upload_document', project_id=project_id))
             
         # 3. Secure Renaming to Random UUID (Prevents directory traversal/file overwrite)
         secure_uuid_name = f"{uuid.uuid4().hex}.pdf"
@@ -189,7 +189,7 @@ def upload_document(project_id):
             file.save(dest_path)
         except Exception as e:
             flash(f"Failed to write file to storage directory: {str(e)}", "danger")
-            return redirect(request.url)
+            return redirect(url_for('portal.upload_document', project_id=project_id))
             
         # Determine if upload is automatically approved or pending request
         is_approved = True

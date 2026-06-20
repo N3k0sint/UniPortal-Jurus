@@ -9,7 +9,7 @@
         <p>Manage and share research proposals and documents securely.</p>
     </div>
     
-    {% if current_user.is_admin() or current_user.is_researcher() %}
+    {% if current_user.is_researcher() %}
         <div>
             <a href="{{ url_for('portal.create_project') }}" class="btn btn-gold">+ Submit Project Proposal</a>
         </div>
@@ -20,7 +20,7 @@
     <div class="glass-panel" style="text-align: center; padding: 4rem;">
         <h3 style="margin-bottom: 1rem;">No Active Projects</h3>
         <p style="color: var(--text-muted); margin-bottom: 2rem;">There are no research projects registered under your name.</p>
-        {% if current_user.is_admin() or current_user.is_researcher() %}
+        {% if current_user.is_researcher() %}
             <a href="{{ url_for('portal.create_project') }}" class="btn btn-primary">Create Your First Project</a>
         {% endif %}
     </div>
