@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}SOC Active Defense Panel - Admin Controls{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+    <div class="dashboard-title">
+        <h1>SOC Active Defense Controls</h1>
+        <p>Manage active blocks, suspend malicious user accounts, and blacklist attacker IP addresses at the application layer.</p>
+    </div>
+</div>
+
+<div class="grid-layout" style="grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+    <!-- Column 1: User Account Suspension -->
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 1.5rem; color: #f9e076; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">User Account Suspension</h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">Suspend or unsuspend user profiles immediately. Suspended users will be immediately locked out of active sessions and blocked from signing in.</p>
+        
+        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">User</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">Role</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">Status</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td style="padding: 0.75rem; font-size: 0.9rem;">
+                                <strong>{{ u.username }}</strong><br>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">{{ u.email }}</span>
+                            </td>
+                            <td style="padding: 0.75rem; font-size: 0.85rem;">
+                                <span class="tag tag-{{ u.role.role_name | lower }}">{{ u.role.role_name }}</span>
+                            </td>
+                            <td style="padding: 0.75rem; font-size: 0.85rem;">
+                                {% if u.is_blocked %}
+                                    <span class="tag tag-admin" style="background-color: #dc3545; color: white;">Suspended</span>
+                                {% else %}
+                                    <span class="tag tag-collaborator" style="background-color: #28a745; color: white;">Active</span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 0.75rem; text-align: right;">
+                                <form action="{{ url_for('admin.toggle_user_block', user_id=u.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Security Confirmation: Are you sure you want to change the suspension state for this user?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    {% if u.is_blocked %}
+                                        <button type="submit" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-color: #28a745; color: #28a745;">Activate</button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-danger" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; background-color: #dc3545; border: none; color: white;">Suspend</button>
+                                    {% endif %}
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Column 2: IP Address Blacklisting -->
+    <div class="glass-panel" style="padding: 1.5rem;">
+        <h2 style="font-size: 1.25rem; margin-bottom: 1.5rem; color: #f9e076; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem;">IP Address Blacklist</h2>
+        
+        <!-- Add IP Block Form -->
+        <form method="POST" action="{{ url_for('admin.security_dashboard') }}" novalidate onsubmit="return confirm('Security Confirmation: Are you sure you want to block this IP address at the application layer?');" style="margin-bottom: 2rem;">
+            {{ form.hidden_tag() }}
+            
+            <div class="form-group" style="margin-bottom: 1rem; display: flex; gap: 1rem;">
+                <div style="flex: 1;">
+                    {{ form.ip_address(class="form-control", placeholder="IP Address (e.g. 192.168.1.100)", style="width: 100%; padding: 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 4px; color: white;") }}
+                    {% if form.ip_address.errors %}
+                        {% for error in form.ip_address.errors %}
+                            <span style="color: #dc3545; font-size: 0.75rem; display: block; margin-top: 0.25rem;">{{ error }}</span>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                <div style="flex: 1;">
+                    {{ form.reason(class="form-control", placeholder="Reason (e.g. Brute Force)", style="width: 100%; padding: 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 4px; color: white;") }}
+                </div>
+                <div>
+                    {{ form.submit(class="btn btn-danger", style="padding: 0.6rem 1rem; background-color: #dc3545; border: none; border-radius: 4px; color: white; cursor: pointer; font-weight: 500;") }}
+                </div>
+            </div>
+        </form>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">Listed IP addresses are permanently blocked at the application level. To release blocks, click "Release".</p>
+        
+        <div class="table-container" style="max-height: 280px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">IP Address</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">Blocked On</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem;">Reason</th>
+                        <th style="font-size: 0.85rem; padding: 0.75rem; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if not blocked_ips %}
+                        <tr>
+                            <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem; font-style: italic;">No active IP blacklists.</td>
+                        </tr>
+                    {% else %}
+                        {% for ip in blocked_ips %}
+                            <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                                <td style="padding: 0.75rem; font-family: monospace; font-size: 0.85rem; font-weight: bold; color: #ff3b30;">{{ ip.ip_address }}</td>
+                                <td style="padding: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">{{ ip.blocked_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td style="padding: 0.75rem; font-size: 0.85rem;">{{ ip.reason or 'N/A' }}</td>
+                                <td style="padding: 0.75rem; text-align: right;">
+                                    <form action="{{ url_for('admin.unblock_ip', ip_id=ip.id) }}" method="POST" style="display:inline; margin: 0;" onsubmit="return confirm('Security Confirmation: Are you sure you want to release the block on this IP address?');">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; border-color: #28a745; color: #28a745;">Release</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

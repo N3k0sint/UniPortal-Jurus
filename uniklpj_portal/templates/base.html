@@ -23,6 +23,7 @@
                         <li><a href="{{ url_for('portal.edit_profile') }}" class="nav-link">Edit Profile</a></li>
                         
                         {% if current_user.is_admin() %}
+                            <li><a href="{{ url_for('admin.security_dashboard') }}" class="nav-link">SOC Panel</a></li>
                             <li><a href="{{ url_for('admin.view_logs') }}" class="nav-link">Audit Logs</a></li>
                             <li><a href="{{ url_for('admin.manage_users') }}" class="nav-link">Manage Users</a></li>
                         {% endif %}
