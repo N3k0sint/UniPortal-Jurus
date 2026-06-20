@@ -39,7 +39,7 @@ def role_required(allowed_roles):
                     details=f"Attempted to access: {request.path}. Allowed roles: {allowed_roles}."
                 )
                 flash("Access Denied: You do not have the required permissions for this action.", "danger")
-                return redirect(url_for('errors_403')) # Redirect to custom 403
+                return redirect(url_for('auth.errors_403')) # Redirect to custom 403
             return f(*args, **kwargs)
         return decorated_function
     return decorator
