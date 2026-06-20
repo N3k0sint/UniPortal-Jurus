@@ -157,7 +157,36 @@ def delete_user(user_id):
             flash("Security Restriction: Cannot delete the last remaining Administrator in the system.", "danger")
             return redirect(url_for('admin.manage_users'))
             
+    import os
+    from flask import current_app
+    from uniklpj_portal.models import CollabRequest
+
     username = user.username
+
+    # 1. Clean up collaborator requests sent by this user
+    CollabRequest.query.filter_by(collaborator_id=user.id).delete()
+
+    # 2. Clean up projects owned by the user (and their files)
+    for project in list(user.projects):
+        for doc in list(project.documents):
+            try:
+                file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], doc.secure_uuid_filename)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except Exception as e:
+                pass
+        db.session.delete(project)
+
+    # 3. Clean up any other documents uploaded by this user
+    for doc in list(user.documents):
+        try:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], doc.secure_uuid_filename)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            pass
+        db.session.delete(doc)
+
     db.session.delete(user)
     db.session.commit()
     
