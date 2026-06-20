@@ -36,4 +36,3 @@ systemctl start uniklpj
 echo "[!] CRASH SIMULATION COMPLETE."
 echo "[!] The database is dropped and uploads are wiped. Check the browser: you will see errors."
 echo "[*] Run 'sudo ./restore.sh' to recover the system."
-EOF

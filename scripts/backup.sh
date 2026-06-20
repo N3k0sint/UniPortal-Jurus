@@ -66,4 +66,3 @@ echo "[+] Enforcing 7-day retention policy..."
 find "$BACKUP_DIR" -type f -name "uniklpj_backup_*.tar.gz.gpg" -mtime +7 -delete
 
 echo "[+] Backup Completed Successfully: $BACKUP_DIR/${BACKUP_NAME}.tar.gz.gpg"
-EOF
