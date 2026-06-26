@@ -69,5 +69,19 @@
     <footer>
         <p>&copy; 2026 UniKL PJ - Secure Research Collaboration Portal. All System Operations Audited.</p>
     </footer>
+
+    <!-- Password Toggle Script -->
+    <script>
+        function togglePassword(btn) {
+            const input = btn.previousElementSibling;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = 'Hide';
+            } else {
+                input.type = 'password';
+                btn.innerHTML = 'Show';
+            }
+        }
+    </script>
 </body>
 </html>

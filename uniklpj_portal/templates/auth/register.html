@@ -33,7 +33,10 @@
         
         <div class="form-group">
             {{ form.password.label(class="form-label") }}
-            {{ form.password(class="form-control", placeholder="Min 8 chars, Upper, Lower, Number, Special") }}
+            <div style="position: relative;">
+                {{ form.password(class="form-control", placeholder="Min 8 chars, Upper, Lower, Number, Special", style="padding-right: 50px;") }}
+                <button type="button" onclick="togglePassword(this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 0.85rem; font-weight: 500; color: #a0a0a0; cursor: pointer; padding: 0;">Show</button>
+            </div>
             {% if form.password.errors %}
                 {% for error in form.password.errors %}
                     <span class="form-error">{{ error }}</span>
@@ -43,7 +46,10 @@
         
         <div class="form-group">
             {{ form.confirm_password.label(class="form-label") }}
-            {{ form.confirm_password(class="form-control", placeholder="Re-enter password") }}
+            <div style="position: relative;">
+                {{ form.confirm_password(class="form-control", placeholder="Re-enter password", style="padding-right: 50px;") }}
+                <button type="button" onclick="togglePassword(this)" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 0.85rem; font-weight: 500; color: #a0a0a0; cursor: pointer; padding: 0;">Show</button>
+            </div>
             {% if form.confirm_password.errors %}
                 {% for error in form.confirm_password.errors %}
                     <span class="form-error">{{ error }}</span>

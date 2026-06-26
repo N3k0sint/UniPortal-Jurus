@@ -137,8 +137,9 @@ cat <<EOF > "$FAIL2BAN_JAIL"
 [sshd]
 enabled = true
 port = 2222
-filter = sshd
-logpath = /var/log/auth.log
+filter = sshd[mode=aggressive]
+backend = systemd
+journalmatch = _SYSTEMD_UNIT=ssh.service + _COMM=sshd
 maxretry = 5
 bantime = 1800
 findtime = 600

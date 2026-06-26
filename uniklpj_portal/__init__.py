@@ -105,14 +105,7 @@ def create_app():
         )
         return render_template('errors/429.html', error_message=error.description), 429
         
-    # Inject security headers globally to all responses
-    @app.after_request
-    def inject_security_headers(response):
-        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
-        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        return response
+    # Removed inject_security_headers to prevent duplication with Nginx
 
     @app.before_request
     def block_blacklisted_ips_and_make_session_permanent():
